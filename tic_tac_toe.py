@@ -1,107 +1,130 @@
 import streamlit as st
-import random
+import numpy as np
+from PIL import Image
 
-st.set_page_config(page_title="Tic Tac Toe - Ayan Shah vs AI", page_icon="🎲", layout="centered")
-st.markdown("""
-    <style>
-    .big-title { font-size: 3em; color: #ff9800; text-align: center; font-family: 'Comic Sans MS', cursive, sans-serif; }
-    .winner { font-size: 2em; color: #4caf50; text-align: center; font-family: 'Comic Sans MS', cursive, sans-serif; }
-    .draw { font-size: 2em; color: #2196f3; text-align: center; font-family: 'Comic Sans MS', cursive, sans-serif; }
-    .cell-btn button { height: 80px !important; width: 80px !important; font-size: 2.5em !important; border-radius: 20px !important; background: #fffde7 !important; border: 3px solid #ff9800 !important; }
-    .cell-btn button:disabled { background: #ffe0b2 !important; color: #bdbdbd !important; }
-    </style>
-""", unsafe_allow_html=True)
-st.markdown('<div class="big-title">Tic Tac Toe 🎲<br><span style="font-size:0.7em;">Ayan Shah (X) vs AI (O)</span></div>', unsafe_allow_html=True)
+# Constants for the game
+PLAYER_X = 'X'
+PLAYER_O = 'O'
+EMPTY = ' '
 
-if 'board' not in st.session_state:
-    st.session_state.board = [[' ' for _ in range(3)] for _ in range(3)]
-    st.session_state.turn = 'user'
-    st.session_state.game_over = False
-    st.session_state.message = ""
-    st.session_state.confetti = False
-
-# Emoji for X and O
-X_EMOJI = '❌'
-O_EMOJI = '⭕'
-
-# Fun background color for kids
-st.markdown('<style>body {background-color: #fff8e1;}</style>', unsafe_allow_html=True)
-
-def check_winner(board, player):
-    for i in range(3):
-        if all([cell == player for cell in board[i]]):
+# Function to check if a player has won
+def check_win(board, player):
+    # Check rows, columns, and diagonals
+    for row in range(3):
+        if all([cell == player for cell in board[row]]):
             return True
-        if all([board[j][i] == player for j in range(3)]):
+    for col in range(3):
+        if all([board[row][col] == player for row in range(3)]):
             return True
     if all([board[i][i] == player for i in range(3)]):
         return True
-    if all([board[i][2 - i] == player for i in range(3)]):
+    if all([board[i][2-i] == player for i in range(3)]):
         return True
     return False
 
-def get_empty_cells(board):
-    return [(i, j) for i in range(3) for j in range(3) if board[i][j] == ' ']
+# Function to check if the game is a draw
+def check_draw(board):
+    return all([cell != EMPTY for row in board for cell in row])
 
+# Minimax algorithm for AI (O)
+def minimax(board, depth, is_maximizing):
+    if check_win(board, PLAYER_O):
+        return 10 - depth
+    if check_win(board, PLAYER_X):
+        return depth - 10
+    if check_draw(board):
+        return 0
+    
+    if is_maximizing:
+        best = -float('inf')
+        for row in range(3):
+            for col in range(3):
+                if board[row][col] == EMPTY:
+                    board[row][col] = PLAYER_O
+                    best = max(best, minimax(board, depth + 1, False))
+                    board[row][col] = EMPTY
+        return best
+    else:
+        best = float('inf')
+        for row in range(3):
+            for col in range(3):
+                if board[row][col] == EMPTY:
+                    board[row][col] = PLAYER_X
+                    best = min(best, minimax(board, depth + 1, True))
+                    board[row][col] = EMPTY
+        return best
+
+# Function for AI to make a move
 def ai_move(board):
-    empty = get_empty_cells(board)
-    if empty:
-        row, col = random.choice(empty)
-        board[row][col] = 'O'
-        if check_winner(board, 'O'):
-            st.session_state.game_over = True
-            st.session_state.message = '<div class="winner">AI wins! Better luck next time, Ayan Shah. 🤖</div>'
-        elif not get_empty_cells(board):
-            st.session_state.game_over = True
-            st.session_state.message = '<div class="draw">It\'s a draw! 😃</div>'
-        else:
-            st.session_state.turn = 'user'
+    best_val = -float('inf')
+    best_move = None
+    for row in range(3):
+        for col in range(3):
+            if board[row][col] == EMPTY:
+                board[row][col] = PLAYER_O
+                move_val = minimax(board, 0, False)
+                board[row][col] = EMPTY
+                if move_val > best_val:
+                    best_val = move_val
+                    best_move = (row, col)
+    return best_move
 
-def print_board(board):
-    for i in range(3):
-        cols = st.columns(3, gap="large")
-        for j in range(3):
-            cell = board[i][j]
-            btn_key = f"{i},{j}-{cell}-{st.session_state.turn}-{st.session_state.game_over}"
-            display = X_EMOJI if cell == 'X' else (O_EMOJI if cell == 'O' else ' ')
-            if cell == ' ' and not st.session_state.game_over and st.session_state.turn == 'user':
-                with cols[j]:
-                    if st.button(display, key=btn_key, help=f"Place {X_EMOJI} here", use_container_width=True, type="primary"):
-                        board[i][j] = 'X'
-                        if check_winner(board, 'X'):
-                            st.session_state.game_over = True
-                            st.session_state.message = '<div class="winner">Congratulations Ayan Shah! You win! 🎉</div>'
-                            st.session_state.confetti = True
-                        elif not get_empty_cells(board):
-                            st.session_state.game_over = True
-                            st.session_state.message = '<div class="draw">It\'s a draw! 😃</div>'
-                        else:
-                            st.session_state.turn = 'ai'
-            else:
-                with cols[j]:
-                    st.button(display, key=btn_key+"-disabled", disabled=True, use_container_width=True)
+# Function to draw the board visually
+def draw_board(board):
+    img = Image.new("RGB", (300, 300), color=(255, 255, 255))
+    for row in range(3):
+        for col in range(3):
+            color = (255, 255, 255)  # White background for cells
+            if board[row][col] == PLAYER_X:
+                img.paste(Image.open("x_image.png"), (col*100, row*100))  # Custom X image
+            elif board[row][col] == PLAYER_O:
+                img.paste(Image.open("o_image.png"), (col*100, row*100))  # Custom O image
+    return img
 
-st.markdown("<br>", unsafe_allow_html=True)
-if st.button("🔄 Restart Game", use_container_width=True):
-    st.session_state.board = [[' ' for _ in range(3)] for _ in range(3)]
-    st.session_state.turn = 'user'
-    st.session_state.game_over = False
-    st.session_state.message = ""
-    st.session_state.confetti = False
+# Main game loop
+def main():
+    st.title("Tic-Tac-Toe Game")
+    st.markdown("Play against the AI! You are **X** and the AI is **O**.")
+    
+    # Initialize session state
+    if "board" not in st.session_state:
+        st.session_state.board = [[EMPTY] * 3 for _ in range(3)]
+        st.session_state.game_over = False
+        st.session_state.turn = PLAYER_X  # Player X starts first
+    
+    # Display the board
+    img = draw_board(st.session_state.board)
+    st.image(img)
+    
+    # Check if the game is over
+    if st.session_state.game_over:
+        if check_win(st.session_state.board, PLAYER_X):
+            st.success("You win!")
+        elif check_win(st.session_state.board, PLAYER_O):
+            st.error("AI wins!")
+        elif check_draw(st.session_state.board):
+            st.warning("It's a draw!")
+        return
+    
+    # User makes a move
+    if st.session_state.turn == PLAYER_X:
+        row = st.number_input("Choose row (0-2):", min_value=0, max_value=2, step=1)
+        col = st.number_input("Choose column (0-2):", min_value=0, max_value=2, step=1)
+        
+        if st.button("Make move"):
+            if st.session_state.board[row][col] == EMPTY:
+                st.session_state.board[row][col] = PLAYER_X
+                if check_win(st.session_state.board, PLAYER_X):
+                    st.session_state.game_over = True
+                else:
+                    st.session_state.turn = PLAYER_O
+                    ai_move_result = ai_move(st.session_state.board)
+                    st.session_state.board[ai_move_result[0]][ai_move_result[1]] = PLAYER_O
+                    if check_win(st.session_state.board, PLAYER_O):
+                        st.session_state.game_over = True
+                    else:
+                        st.session_state.turn = PLAYER_X
 
-print_board(st.session_state.board)
-
-if st.session_state.turn == 'ai' and not st.session_state.game_over:
-    ai_move(st.session_state.board)
-    print_board(st.session_state.board)
-
-if st.session_state.message:
-    st.markdown(st.session_state.message, unsafe_allow_html=True)
-    if st.session_state.confetti:
-        st.balloons()
-
-st.markdown("""
----
-<div style='text-align:center; color:#ff9800; font-family: "Comic Sans MS", cursive, sans-serif;'>
-Have fun playing, kids! 😃🎈
-</div>
-""", unsafe_allow_html=True)
+# Run the game in Streamlit
+if __name__ == "__main__":
+    main()
