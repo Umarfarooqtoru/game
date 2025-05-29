@@ -44,9 +44,9 @@ def print_board(board):
         cols = st.columns(3)
         for j in range(3):
             cell = board[i][j]
-            # Make the key unique by including cell value and turn
-            btn_key = f"{i},{j}-{cell}-{st.session_state.turn}-{st.session_state.game_over}"
+            # Make the key unique by including cell value, turn, game_over, and a random int for disabled buttons
             if cell == ' ' and not st.session_state.game_over and st.session_state.turn == 'user':
+                btn_key = f"{i},{j}-active-{st.session_state.turn}-{st.session_state.game_over}"
                 if cols[j].button(" ", key=btn_key):
                     board[i][j] = 'X'
                     if check_winner(board, 'X'):
@@ -58,6 +58,8 @@ def print_board(board):
                     else:
                         st.session_state.turn = 'ai'
             else:
+                # Add a unique suffix for disabled buttons to avoid duplicate keys
+                btn_key = f"{i},{j}-{cell}-{st.session_state.turn}-{st.session_state.game_over}-disabled"
                 cols[j].button(cell, key=btn_key, disabled=True)
 
 if st.button("Restart Game"):
